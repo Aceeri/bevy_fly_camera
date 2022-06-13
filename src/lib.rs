@@ -50,9 +50,12 @@
 //!
 //! There's also a basic piece of example code included in `/examples/2d.rs`
 
-use bevy::{input::mouse::MouseMotion, prelude::*};
-use cam2d::camera_2d_movement_system;
-use util::movement_axis;
+use bevy::{
+	input::mouse::MouseMotion,
+	prelude::*,
+};
+pub use cam2d::camera_2d_movement_system;
+pub use util::movement_axis;
 
 mod cam2d;
 mod util;
@@ -75,7 +78,7 @@ pub struct FlyCamera {
 	pub accel: f32,
 	/// The maximum speed the FlyCamera can move at. Defaults to `0.5`
 	pub max_speed: f32,
-	/// The sensitivity of the FlyCamera's motion based on mouse movement. Defaults to `3.0`
+	/// The sensitivity of the FlyCamera's motion based on mouse movement. Defaults to `1.0`
 	pub sensitivity: f32,
 	/// The amount of deceleration to apply to the camera's motion. Defaults to `1.0`
 	pub friction: f32,
@@ -103,9 +106,9 @@ pub struct FlyCamera {
 impl Default for FlyCamera {
 	fn default() -> Self {
 		Self {
-			accel: 1.5,
+			accel: 1.15,
 			max_speed: 0.5,
-			sensitivity: 3.0,
+			sensitivity: 0.5,
 			friction: 1.0,
 			pitch: 0.0,
 			yaw: 0.0,
@@ -125,20 +128,20 @@ fn forward_vector(rotation: &Quat) -> Vec3 {
 	rotation.mul_vec3(Vec3::Z).normalize()
 }
 
-fn forward_walk_vector(rotation: &Quat) -> Vec3 {
+pub fn forward_walk_vector(rotation: &Quat) -> Vec3 {
 	let f = forward_vector(rotation);
 	let f_flattened = Vec3::new(f.x, 0.0, f.z).normalize();
 	f_flattened
 }
 
-fn strafe_vector(rotation: &Quat) -> Vec3 {
+pub fn strafe_vector(rotation: &Quat) -> Vec3 {
 	// Rotate it 90 degrees to get the strafe direction
 	Quat::from_rotation_y(90.0f32.to_radians())
 		.mul_vec3(forward_walk_vector(rotation))
 		.normalize()
 }
 
-fn camera_movement_system(
+pub fn camera_movement_system(
 	time: Res<Time>,
 	keyboard_input: Res<Input<KeyCode>>,
 	mut query: Query<(&mut FlyCamera, &mut Transform)>,
@@ -195,7 +198,7 @@ fn camera_movement_system(
 	}
 }
 
-fn mouse_motion_system(
+pub fn mouse_motion_system(
 	time: Res<Time>,
 	mut mouse_motion_event_reader: EventReader<MouseMotion>,
 	mut query: Query<(&mut FlyCamera, &mut Transform)>,
@@ -212,17 +215,17 @@ fn mouse_motion_system(
 		if !options.enabled {
 			continue;
 		}
-		options.yaw -= delta.x * options.sensitivity * time.delta_seconds();
-		options.pitch += delta.y * options.sensitivity * time.delta_seconds();
+		options.yaw -= delta.x * options.sensitivity * 1.0 / 89.759789 / 2.0;
+		options.pitch -= delta.y * options.sensitivity * 1.0 / 89.759789 / 2.0;
 
-		options.pitch = options.pitch.clamp(-89.0, 89.9);
+		options.yaw = options.yaw.rem_euclid(std::f32::consts::TAU);
+
+		options.pitch = options.pitch.clamp(-1.57, 1.57);
+		//options.pitch = options.pitch.clamp(-89.0, 89.9);
 		// println!("pitch: {}, yaw: {}", options.pitch, options.yaw);
 
-		let yaw_radians = options.yaw.to_radians();
-		let pitch_radians = options.pitch.to_radians();
-
-		transform.rotation = Quat::from_axis_angle(Vec3::Y, yaw_radians)
-			* Quat::from_axis_angle(-Vec3::X, pitch_radians);
+		transform.rotation = Quat::from_axis_angle(Vec3::Y, options.yaw)
+			* Quat::from_axis_angle(Vec3::X, options.pitch);
 	}
 }
 
